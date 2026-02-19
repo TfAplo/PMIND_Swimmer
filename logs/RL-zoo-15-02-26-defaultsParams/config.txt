@@ -1,0 +1,20 @@
+Default hyperparameters for environment (ones being tuned will be overridden):
+OrderedDict([('batch_size', 256),
+             ('gamma', 0.9999),
+             ('gradient_steps', 1),
+             ('learning_rate', 0.001),
+             ('learning_starts', 10000),
+             ('n_timesteps', 1000000.0),
+             ('noise_std', 0.1),
+             ('noise_type', 'normal'),
+             ('policy', 'MlpPolicy'),
+             ('policy_kwargs', 'dict(net_arch=[400, 300])'),
+             ('train_freq', 1)])
+Using 1 environments
+Overwriting n_timesteps with n=400000
+Creating test environment
+Applying normal noise with std 0.1
+Using cpu device
+
+
+python -m rl_zoo3.train --algo td3 --env Swimmer-v4 -n 400000 --seed 0 --eval-freq 5000 --eval-episodes 10 --tensorboard-log logs/tb/defaultsParams/
