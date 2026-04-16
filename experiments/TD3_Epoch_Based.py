@@ -15,7 +15,7 @@ from bbrl_utils.notebook import setup_tensorboard
 from bbrl.visu.plot_policies import plot_policy
 from omegaconf import OmegaConf
 from torch.distributions import Normal
-from bbrl.workspace import Workspace
+
 import bbrl_utils
 
 bbrl_utils.setup()
@@ -51,7 +51,6 @@ class ContinuousDeterministicActor(Agent):
         action = self.model(obs)
         self.set(("action", t), action)
 
-
 class AddGaussianNoise(Agent):
     def __init__(self, sigma):
         super().__init__()
@@ -75,52 +74,6 @@ def compute_critic_loss(cfg,reward,must_bootstrap,q_values, target_q_values):
 
 def compute_actor_loss(q_values):
     return -q_values[0].mean()
-
-params = {
-    "save_best": False,
-    "base_dir": "${gym_env.env_name}/td3-S${algorithm.seed}_${current_time:}",
-    "collect_stats": False,
-    # Set to true to have an insight on the learned policy
-    # (but slows down the evaluation a lot!)
-    "plot_agents": False,
-    "algorithm": {
-        "max_steps" : 300_000,
-        "policy_delay" : 2,
-        'target_policy_noise': 0.2, #0.2
-        "target_policy_noise_clip": 0.5, #0.5
-        "seed": 6,
-        "max_grad_norm": 0.5,
-        "n_envs": 1,
-        "n_steps": 1000,
-        "nb_evals": 10,#10
-        "discount_factor": 0.99999,#0.99999
-        "buffer_size": 1e6, #1e6
-        "batch_size": 256,
-        "tau_target": 0.005,#0.005
-        "eval_interval": 5000,#5000
-        "max_epochs": 1500,
-        # Minimum number of transitions before learning starts
-        "learning_starts": 10000,
-        "action_noise": 0.1,#0.1
-        "architecture": {
-            "actor_hidden_size": [400, 300],
-            "critic_hidden_size": [400, 300],
-        },
-    },
-    "gym_env": {
-        "env_name": "Swimmer-v5",
-    },
-    "actor_optimizer": {
-        "classname": "torch.optim.Adam",
-        "lr": 3e-4,#1e-3 3e-4
-        "eps": 5e-5,
-    },
-    "critic_optimizer": {
-        "classname": "torch.optim.Adam",
-        "lr": 3e-4,
-        "eps": 5e-5,
-    },
-}
 
 class TD3(EpochBasedAlgo):
     def __init__(self, cfg):
@@ -155,12 +108,9 @@ class TD3(EpochBasedAlgo):
         self.actor_optimizer = setup_optimizer(cfg.actor_optimizer, self.actor)
         self.critic_optimizer = setup_optimizer(cfg.critic_optimizer, self.critic_1, self.critic_2)
 
-def train_td3_step(td3: TD3):
-        """
-        Performs a single update step of TD3
-        """
-        rb = td3.replay_buffer.get_shuffled(td3.cfg.algorithm.batch_size)
-        rb_workspace = rb
+def run_td3(td3: TD3):
+    for rb in td3.iter_replay_buffers():
+        rb_workspace = rb.get_shuffled(td3.cfg.algorithm.batch_size)
 
         # compute q <- critic(s,a)
         td3.critic_1(rb_workspace, t=0)
@@ -196,8 +146,8 @@ def train_td3_step(td3: TD3):
 
         loss_q1 = compute_critic_loss(td3.cfg, reward, must_bootstrap, q1, min_q)
         loss_q2 = compute_critic_loss(td3.cfg, reward, must_bootstrap, q2, min_q)
-        td3.logger.add_log("critic_1_loss", loss_q1, td3.nb_steps)
-        td3.logger.add_log("critic_2_loss", loss_q2, td3.nb_steps)
+        # td3.logger.add_log("critic_1_loss", loss_q1, td3.nb_steps)
+        # td3.logger.add_log("critic_2_loss", loss_q2, td3.nb_steps)
 
         critic_loss = loss_q1 + loss_q2
 
@@ -214,7 +164,7 @@ def train_td3_step(td3: TD3):
         )
         td3.critic_optimizer.step()
 
-        # if step % policy_delay == 0
+        # Si step % policy_delay == 0
         if td3.nb_steps % td3.cfg.algorithm.policy_delay == 0:
             # loss_actor = -critic_1(s, actor(s)).mean()
             td3.actor(rb_workspace, t=0)
@@ -235,29 +185,65 @@ def train_td3_step(td3: TD3):
             soft_update_params(td3.critic_1, td3.target_critic_1, td3.cfg.algorithm.tau_target)
             soft_update_params(td3.critic_2, td3.target_critic_2, td3.cfg.algorithm.tau_target)
 
-setup_tensorboard("./outputs")
+        if td3.evaluate():
+            if td3.cfg.plot_agents:
+                plot_policy(
+                    td3.actor,
+                    td3.eval_env,
+                    td3.best_reward,
+                    str(td3.base_dir / "plots"),
+                    td3.cfg.gym_env.env_name,
+                    stochastic=False,
+                )
 
-# Main idea here was to use a step based evaluation instead of using the epoch based logic
+params = {
+    "save_best": False,
+    "base_dir": "${gym_env.env_name}/td3-S${algorithm.seed}_${current_time:}",
+    "collect_stats": False,
+    # Set to true to have an insight on the learned policy
+    # (but slows down the evaluation a lot!)
+    "plot_agents": False,
+    "algorithm": {
+        "policy_delay" : 2,
+        'target_policy_noise': 0.2, #0.2
+        "target_policy_noise_clip": 0.5, #0.5
+        "seed": 6,
+        "max_grad_norm": 0.5,
+        "n_envs": 1,#1
+        "n_steps": 1,#1000
+        "nb_evals": 10,#10
+        "discount_factor": 0.99999,#0.99999
+        "buffer_size": 1e6, #1e6
+        "batch_size": 256,
+        "tau_target": 0.005,#0.005
+        "eval_interval": 5000,#5000
+        "max_epochs": 300_000,
+        # Minimum number of transitions before learning starts
+        "learning_starts": 10000,
+        "action_noise": 0.1,#0.1
+        "architecture": {
+            "actor_hidden_size": [400, 300],
+            "critic_hidden_size": [400, 300],
+        },
+    },
+    "gym_env": {
+        "env_name": "Swimmer-v5",
+    },
+    "actor_optimizer": {
+        "classname": "torch.optim.Adam",
+        "lr": 3e-4,#1e-3 3e-4
+        "eps": 5e-5,
+    },
+    "critic_optimizer": {
+        "classname": "torch.optim.Adam",
+        "lr": 3e-4,
+        "eps": 5e-5,
+    },
+}
 
-# for i in range(3, 10):
-#     params["algorithm"]["seed"] = i
-td3 = TD3(OmegaConf.create(params))
-workspace = Workspace()
-td3.train_agent(workspace, t=0, n_steps=1, stochastic=True)
-
-for step in range(td3.cfg.algorithm.max_steps):
-    td3.train_agent(workspace, t=1, n_steps=1, stochastic=True)
-    transition = workspace.get_transitions()
-    td3.replay_buffer.put(transition)
-
-    td3.nb_steps += transition.batch_size()
-    workspace.copy_n_last_steps(1)
-
-    if td3.replay_buffer.size() > td3.cfg.algorithm.learning_starts:
-        train_td3_step(td3)
-
-    # evaluation + logging
-    if td3.nb_steps % td3.cfg.algorithm.eval_interval == 0:
-        td3.evaluate()
-
-td3.visualize_best()
+if __name__ == "__main__":
+    for i in range(10, 20):
+        params["algorithm"]["seed"] = i
+        td3 = TD3(OmegaConf.create(params))
+        run_td3(td3)
+        td3.visualize_best()

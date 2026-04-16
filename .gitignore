@@ -2,3 +2,5 @@ RLnotebooks/
 outputs/
 bbrl_material/
 venv/
+__pycache__/
+PointMaze.ipynb
