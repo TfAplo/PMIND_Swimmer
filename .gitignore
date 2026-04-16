@@ -4,3 +4,7 @@ bbrl_material/
 venv/
 __pycache__/
 PointMaze.ipynb
+*.out
+.ipynb_chckpoints/
+.DS_Store
+**/.DS_Store

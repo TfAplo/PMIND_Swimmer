@@ -11,6 +11,7 @@ from bbrl.visu.plot_policies import plot_policy
 from src.integrated_gradient import integrated_gradients, log_integrated_gradients_attribution
 from src.visualisation import plot_heatmap_and_real_trajectory, plot_heatmap_and_vector_field
 from src.config import MY_MAZE
+from src.utils import find_pos
 
 class TD3(EpochBasedAlgo):
     def __init__(self, cfg, env_wrappers):
@@ -129,8 +130,10 @@ def run_td3_clean(td3: TD3):
                     stochastic=False,
                 )
 
-def run_td3(td3: TD3, save_checkpoint=False, maze_map=MY_MAZE, plots=False):
+def run_td3(td3: TD3, save_checkpoint=False, maze_map=MY_MAZE, env_type="pointmaze", plots=False):
     last_logged_step = -1
+    goal_pos = find_pos(env_type, maze_map, 'g')
+    
     for rb in td3.iter_replay_buffers():
         rb_workspace = rb.get_shuffled(td3.cfg.algorithm.batch_size)
         replay_actions = rb_workspace["action"][0].clone()  # actions stockées dans le buffer
@@ -250,6 +253,8 @@ def run_td3(td3: TD3, save_checkpoint=False, maze_map=MY_MAZE, plots=False):
                     save_dir=heatmap_vf_dir,
                     seed=td3.cfg.algorithm.seed,
                     maze_map=maze_map,
+                    env_type=env_type,
+                    goal_pos=goal_pos
                     # num_vectors_to_show=1
                 )
 
@@ -262,7 +267,9 @@ def run_td3(td3: TD3, save_checkpoint=False, maze_map=MY_MAZE, plots=False):
                     step=td3.nb_steps, 
                     save_dir=heatmap_traj_dir,
                     seed=td3.cfg.algorithm.seed,
-                    maze_map=maze_map
+                    maze_map=maze_map,
+                    env_type=env_type,
+                    goal_pos=goal_pos
                 )
 
                 log_integrated_gradients_attribution(

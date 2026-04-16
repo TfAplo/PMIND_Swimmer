@@ -14,6 +14,9 @@ from src.wrapper import ActionTimeExtensionWrapper, VelocityControlWrapper
 from src.TD3 import TD3, run_td3
 gym.register_envs(gymnasium_robotics)
 
+
+# nohup python main.py --env_type pointmaze --logdir maze2D --nb_seeds 5 --M 5 --plots --save_checkpoint
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
@@ -97,7 +100,7 @@ if __name__ == "__main__":
                 cfg = OmegaConf.create(current_params)
                 
                 td3 = TD3(cfg, env_wrappers=wrappers)
-                run_td3(td3, save_checkpoint=args.save_checkpoint,maze_map=maze_map, plots=args.plots)
+                run_td3(td3, save_checkpoint=args.save_checkpoint,maze_map=maze_map, env_type=args.env_type, plots=args.plots)
                 
                 if args.visualize_best:
                     td3.visualize_best()

@@ -160,7 +160,7 @@ params_maze2D  = {
         "env_name": "SimpleMaze2D-v0",
         "env_args": {
             "maze_map": MAZE_2D,
-            "action_scale": 0.5,
+            "action_scale": 0.2,
         }
     },
     "actor_optimizer": {

@@ -1,6 +1,7 @@
 import os
 
 from src.wrapper import ActionTimeExtensionWrapper
+from src.utils import make_obs_from_grid, obs_to_grid
 # os.environ["MUJOCO_GL"] = "egl"
 # os.environ["TQDM_DISABLE"] = "1"
 import sys
@@ -31,16 +32,11 @@ import bbrl_utils
 bbrl_utils.setup()
 
 
-def plot_heatmap_and_vector_field(actor, critic, env_name, M, step, save_dir, seed, maze_map, num_vectors_to_show=None):
+def plot_heatmap_and_vector_field(actor, critic, env_name, M, step, save_dir, seed, maze_map, num_vectors_to_show=None, env_type="pointmaze", goal_pos=None):
     """
     Calcule la Heatmap des Q-Valeurs V(s) et superpose le Vector Field des actions.
     """
     os.makedirs(save_dir, exist_ok=True)
-    
-    temp_env = gym.make(env_name)
-    temp_env = FlattenObservation(temp_env)
-    obs_base, _ = temp_env.reset()
-    temp_env.close()
     
     # Limites pour englober la carte proprement
     x_min, x_max = -0.5, len(maze_map[0]) - 0.5
@@ -78,16 +74,9 @@ def plot_heatmap_and_vector_field(actor, critic, env_name, M, step, save_dir, se
                     V_map[i, j] = np.nan
                     continue
 
-                phys_x = x - center_x
-                phys_y = -(y - center_y)
-
-                obs = obs_base.copy()
-                obs[0], obs[1] = phys_x, phys_y
-                obs[4], obs[5] = phys_x, phys_y
-                obs[6], obs[7] = 0.0, 0.0
-
-                obs_tensor = torch.FloatTensor(obs).unsqueeze(0)
+                obs_tensor = make_obs_from_grid(env_type, x, y, goal_pos, maze_map).unsqueeze(0)
                 action_tensor = actor.model(obs_tensor)
+
 
                 # Le Critique évalue l'état + l'action choisie
                 obs_act = torch.cat((obs_tensor, action_tensor), dim=1)
@@ -137,25 +126,7 @@ def plot_heatmap_and_vector_field(actor, critic, env_name, M, step, save_dir, se
             else:
                 continue
             
-            # On décale les coordonnées pour que (5,4) devienne (0,0) !
-            phys_x = x - center_x
-            
-            # ATTENTION : Dans les images, Y pointe vers le bas. Dans MuJoCo, Y pointe vers le haut !
-            # Il faut inverser l'axe Y pour que le robot comprenne.
-            phys_y = -(y - center_y)
-            
-            obs = obs_base.copy()
-
-            # 1. On dit au robot qu'il a atteint la case (x, y)
-            obs[0], obs[1] = phys_x, phys_y
-            # 2. On NE TOUCHE PAS à obs[2] et obs[3] ! 
-            # obs_base contient déjà les coordonnées de la cible verte ('g'), on la laisse tranquille.
-            # 3. On modifie la VRAIE position physique du robot (X, Y)
-            obs[4], obs[5] = phys_x, phys_y
-            # 4. On met sa vitesse à zéro
-            obs[6], obs[7] = 0.0, 0.0
-            
-            obs_tensor = torch.FloatTensor(obs).unsqueeze(0)
+            obs_tensor = make_obs_from_grid(env_type, x, y, goal_pos, maze_map).unsqueeze(0)
             with torch.no_grad():
                 action_tensor = actor.model(obs_tensor)
             
@@ -197,16 +168,13 @@ def plot_heatmap_and_vector_field(actor, critic, env_name, M, step, save_dir, se
     plt.close()
 
 
-def plot_heatmap_and_real_trajectory(actor, critic, env_name, M, step, save_dir, seed, maze_map):
+def plot_heatmap_and_real_trajectory(actor, critic, env_name, M, step, save_dir, seed, maze_map, env_type="pointmaze", goal_pos=None):
     """
     Calcule la Heatmap des Q-Valeurs V(s) et trace la trajectoire réelle de l'agent par-dessus en le faisant jouer un épisode complet.
     """
     os.makedirs(save_dir, exist_ok=True)
 
     # 1. PRÉPARATION ET CALCUL DE LA HEATMAP
-    temp_env = gym.make(env_name)
-    temp_env = FlattenObservation(temp_env)
-    obs_base, _ = temp_env.reset()
     
     x_min, x_max = -0.5, len(maze_map[0]) - 0.5
     y_min, y_max = -0.5, len(maze_map) - 0.5
@@ -235,15 +203,7 @@ def plot_heatmap_and_real_trajectory(actor, critic, env_name, M, step, save_dir,
                     V_map[i, j] = np.nan
                     continue
 
-                phys_x = x - center_x
-                phys_y = -(y - center_y)
-
-                obs = obs_base.copy()
-                obs[0], obs[1] = phys_x, phys_y
-                obs[4], obs[5] = phys_x, phys_y
-                obs[6], obs[7] = 0.0, 0.0
-
-                obs_tensor = torch.FloatTensor(obs).unsqueeze(0)
+                obs_tensor = make_obs_from_grid(env_type, x, y, goal_pos, maze_map).unsqueeze(0)
                 action_tensor = actor.model(obs_tensor)
 
                 obs_act = torch.cat((obs_tensor, action_tensor), dim=1)
@@ -256,7 +216,6 @@ def plot_heatmap_and_real_trajectory(actor, critic, env_name, M, step, save_dir,
     im = plt.pcolormesh(X, Y, V_map, cmap=cmap, shading='nearest', alpha=0.6)
     plt.colorbar(im, label="Valeur estimée $V(s)$")
 
-    temp_env.close()
 
     # 2. COLLECTE DE LA TRAJECTOIRE RÉELLE
     # On recrée l'environnement avec le wrapper temporel pour lancer la run    
@@ -273,8 +232,7 @@ def plot_heatmap_and_real_trajectory(actor, critic, env_name, M, step, save_dir,
     max_steps = 1000
 
     while not done and step_count < max_steps:
-        img_x = obs[0] + center_x
-        img_y = center_y - obs[1] 
+        img_x, img_y = obs_to_grid(env_type, obs, maze_map)
         positions.append((img_x, img_y))
         
         # Inférence
@@ -311,9 +269,9 @@ def plot_heatmap_and_real_trajectory(actor, critic, env_name, M, step, save_dir,
     
     # Flèches d'intention (Espacées par le stride)
     colors = cm.plasma(np.linspace(0, 0.8, M))
-    scale = 0.1 # Même échelle que ton vector field
-    # stride = max(1, len(positions) // 40) # Dessine une flèche tous les N steps
-    stride = 5
+    scale = 0.3 if env_type=="maze2D" else 0.1 
+    #stride = max(1, len(positions) // 30) # Dessine une flèche tous les N steps
+    stride = 1 if env_type=="maze2D" else 5
 
     for i in range(0, len(positions), stride):
         px, py = positions[i]
@@ -322,7 +280,7 @@ def plot_heatmap_and_real_trajectory(actor, critic, env_name, M, step, save_dir,
         curr_px, curr_py = px, py
         for m in range(M):
             dx = acts[m, 0] * scale
-            dy = -acts[m, 1] * scale
+            dy = acts[m, 1] * scale
             
             plt.arrow(curr_px, curr_py, dx, dy, 
                       head_width=0.03, head_length=0.04, 

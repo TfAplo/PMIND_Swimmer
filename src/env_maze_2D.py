@@ -11,7 +11,7 @@ class SimpleMaze2D(gym.Env):
     metadata = {"render_modes": ["rgb_array"], "render_fps": 5}
 
     def __init__(self, maze_map=MAZE_2D, action_scale=0.3, goal_threshold=1.5, render_mode=None):
-        print(f"maze_map rows: {len(maze_map)}, action_scale: {action_scale}, goal_threshold: {goal_threshold}")
+        #print(f"maze_map rows: {len(maze_map)}, action_scale: {action_scale}, goal_threshold: {goal_threshold}")
         super().__init__()
         self.maze_map = maze_map
         self.rows = len(maze_map)
@@ -52,32 +52,23 @@ class SimpleMaze2D(gym.Env):
 
     def step(self, action):
         self._total_calls = getattr(self, '_total_calls', 0) + 1
-        if self._total_calls % 5000 == 0:
-            print(f"step appelé {self._total_calls} fois, pos={self.pos}, dist={np.linalg.norm(self.pos - self.goal_pos):.3f}", flush=True)
         
-        old_pos = self.pos.copy()
         # reward dense
         dx = action[0] * self.action_scale
         dy = action[1] * self.action_scale
         
-        new_pos = self.pos + np.array([dx, dy], dtype=np.float32)
-        
-        if not self._is_wall(new_pos[0], new_pos[1]):
-            # mouvement complet ok
-            self.pos = new_pos
-        else:
-            # essai axe x seul
-            new_pos_x = self.pos + np.array([dx, 0.0], dtype=np.float32)
-            if not self._is_wall(new_pos_x[0], new_pos_x[1]):
-                self.pos = new_pos_x
-            # essai axe y seul
-            new_pos_y = self.pos + np.array([0.0, dy], dtype=np.float32)
-            if not self._is_wall(new_pos_y[0], new_pos_y[1]):
-                self.pos = new_pos_y
-            # sinon on reste sur place
+        # 1. On essaie d'abord de bouger uniquement sur l'axe X
+        new_x = self.pos[0] + dx
+        if not self._is_wall(new_x, self.pos[1]):
+            self.pos[0] = new_x  # C'est libre, on valide X
+            
+        # 2. On essaie ensuite de bouger uniquement sur l'axe Y
+        new_y = self.pos[1] + dy
+        if not self._is_wall(self.pos[0], new_y):
+            self.pos[1] = new_y  # C'est libre, on valide Y
 
+        # Calcul de la distance avec la VRAIE position finale
         dist = np.linalg.norm(self.pos - self.goal_pos)
-
 
         reward = -dist
         terminated = False
