@@ -1,0 +1,1 @@
+python -m rl_zoo3.train --algo td3 --env Swimmer-v5 -n 400000 --conf-file td3.yml --seed 0 --eval-freq 5000 --eval-episodes 10 --tensorboard-log logs/tb/
