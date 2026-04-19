@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--nb_seeds", required=False, default=5, type=int, help="Nombre de random seeds")
     parser.add_argument("--seed_start", required=False, default=0, type=int, help="Seed de départ")
     parser.add_argument("--vel_mult", required=False, default=10.0, type=float, help="Multiplicateur de vitesse quand ignore_inertia est actif")
-    parser.add_argument("--M", required=False, default=1, type=int, help="Nombre maximum d'époques d'entraînement")
+    parser.add_argument("--M", required=False, default=1, type=int, help="Taille de la séquence d'actions, si M=5, réalise 5 runs de M=1 à M=5")
     parser.add_argument("--plots", action="store_true", help="Affiche les heatmaps et trajectoires à la fin de chaque run")
     
     # Options 
