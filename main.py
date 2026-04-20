@@ -54,16 +54,29 @@ if __name__ == "__main__":
 
             torch.set_num_threads(2)
             os.environ["OMP_NUM_THREADS"] = "2"
-            
-            p = copy.deepcopy(params_PointMaze)
-            p["M"] = M
-            p["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/${run_time}_td3-S${{algorithm.seed}}_M={M}"
-            p["algorithm"]["seed"] = seed
-            wrappers = [lambda env: FlattenObservation(env),
-                        lambda env, m=M: ActionTimeExtensionWrapper(env, M=m)]
+            if args.env_type == "pointmaze":
+
+                p = copy.deepcopy(params_PointMaze)
+                p["M"] = M
+                p["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/${run_time}_td3-S${{algorithm.seed}}_M={M}"
+                p["algorithm"]["seed"] = seed
+                wrappers = [lambda env: FlattenObservation(env),
+                            lambda env, m=M: ActionTimeExtensionWrapper(env, M=m)]
+            elif args.env_type == "maze2D":
+                p = copy.deepcopy(params_maze2D)
+                p["M"] = M
+                p["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/${run_time}_td3-S${{algorithm.seed}}_M={M}"
+                p["algorithm"]["seed"] = seed
+                p["gym_env"]["env_args"]["maze_map"] = maze_map
+                wrappers = [
+                        lambda env, m=M: ActionTimeExtensionWrapper(env, M=m),
+                        lambda env: Autoreset(env),  
+                    ]
+                
             td3 = TD3(OmegaConf.create(p), env_wrappers=wrappers)
-            run_td3(td3, save_checkpoint=args.save_checkpoint,maze_map=maze_map, plots=args.plots)
-            td3.visualize_best()
+            run_td3(td3, save_checkpoint=args.save_checkpoint,maze_map=maze_map,env_type=args.env_type, plots=args.plots)
+            if args.visualize_best:
+                    td3.visualize_best()
 
     else:
         for seed in range(args.seed_start, args.seed_start + args.nb_seeds):
