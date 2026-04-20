@@ -242,25 +242,35 @@ python main.py --env_type maze2D --maze_map U --nb_seeds 5 --multiprocess --save
 
 Le script s'utilise en ligne de commande avec de nombreux paramètres pour configurer l'expérience. 
 
+
 **Environnement (Requis)**
+
 * `--env_type` : L'environnement à utiliser. Choix : `maze2D` ou `pointmaze`.
 
 **Paramètres généraux**
-* `--M` : Taille de la séquence d'actions, si M=5, réalise 5 runs de M=1 à M=5 (défaut : `1`).
+
+* `--nb_M` : Nombre d’itérations sur M (ex : `nb_M=5` lance des runs pour M allant de `start_M` à 5) (défaut : `1`).
+* `--M` : Taille de la séquence d’actions utilisée (notamment pour la méthode multiprocess) (défaut : `1`).
+* `--start_M` : Valeur initiale de M pour les expérimentations (défaut : `1`).
 * `--nb_seeds` : Nombre de random seeds à exécuter (défaut : `5`).
 * `--seed_start` : Numéro de la seed de départ (défaut : `0`).
-* `--logdir` : Chemin pour log les résultats et Tensorboard (défaut : `logs`).
+* `--logdir` : Chemin pour log les résultats et TensorBoard (défaut : `logs`).
 * `--vel_mult` : Multiplicateur de vitesse quand l'option `--ignore_inertia` est active (défaut : `10.0`).
+* `--reward_type` : Type de reward utilisé. Choix : `dense` ou `sparse` (défaut : `dense`).
+* `--continuing_task` : Si activé, l’épisode ne s’arrête pas lorsque le goal est atteint.
 * `--plots` : Affiche les heatmaps et les trajectoires à la fin de chaque run.
 
-**Options de l'environnement et sauvegarde**
+**Options de l’environnement et sauvegarde**
+
 * `--maze_map` : Choix de la carte (uniquement pour `maze2D`). Choix : `wall` ou `U` (défaut : `wall`).
 * `--save_checkpoint` : Sauvegarde les checkpoints des modèles (Actor/Critic) dans le dossier de log.
 * `--visualize_best` : Enregistre une vidéo de la meilleure run à la fin de l'entraînement.
-* `--ignore_inertia` : Active le `VelocityControlWrapper` pour ignorer l'inertie et utiliser directement la vitesse au lieu de l'accélération.
+* `--ignore_inertia` : Ignore l’inertie pour utiliser directement la vitesse au lieu de l’accélération.
 
 **Exécution**
-* `--multiprocess` : Utilise le multiprocessing Python pour lancer les différentes seeds en parallèle sur plusieurs cœurs de votre machine.
+
+* `--multiprocess` : Utilise le multiprocessing Python pour lancer les différentes seeds en parallèle sur plusieurs cœurs de la machine.
+
 
 ---
 

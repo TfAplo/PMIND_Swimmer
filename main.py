@@ -15,7 +15,7 @@ from src.TD3 import TD3, run_td3
 gym.register_envs(gymnasium_robotics)
 
 
-# nohup python main.py --env_type pointmaze --logdir maze2D --nb_seeds 5 --M 5 --plots --save_checkpoint
+# nohup python main.py --env_type maze2D --logdir maze2D_episodic --nb_seeds 5 --M 5 --start_M 1 --plots --save_checkpoint
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -28,8 +28,12 @@ if __name__ == "__main__":
     parser.add_argument("--nb_seeds", required=False, default=5, type=int, help="Nombre de random seeds")
     parser.add_argument("--seed_start", required=False, default=0, type=int, help="Seed de départ")
     parser.add_argument("--vel_mult", required=False, default=10.0, type=float, help="Multiplicateur de vitesse quand ignore_inertia est actif")
-    parser.add_argument("--M", required=False, default=1, type=int, help="Taille de la séquence d'actions, si M=5, réalise 5 runs de M=1 à M=5")
+    parser.add_argument("--nb_M", required=False, default=1, type=int, help="nombre d'itérations sur M, si nb_M=5, réalise 5 runs de start_M à M=5")
+    parser.add_argument("--M", required=False, default=1, type=int, help="taille de la séquence d'actions (pour la méthode multiprocess)")
+    parser.add_argument("--start_M", required=False, default=1, type=int, help="Taille initiale de la séquence d'actions")
     parser.add_argument("--plots", action="store_true", help="Affiche les heatmaps et trajectoires à la fin de chaque run")
+    parser.add_argument("--reward_type", type=str, choices=["dense", "sparse"], default="dense", help="Type de reward: 'dense' ou 'sparse'")
+    parser.add_argument("--continuing_task", action="store_true", help="l'episode ne s'arrête pas quand le goal est atteint")
     
     # Options 
     parser.add_argument("--maze_map", required=False, default="wall", choices=["wall", "U"], help="Choix de la map (pour maze2D)")
@@ -58,14 +62,14 @@ if __name__ == "__main__":
 
                 p = copy.deepcopy(params_PointMaze)
                 p["M"] = M
-                p["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/${run_time}_td3-S${{algorithm.seed}}_M={M}"
+                p["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/{run_time}_td3-S${{algorithm.seed}}_M={M}"
                 p["algorithm"]["seed"] = seed
                 wrappers = [lambda env: FlattenObservation(env),
                             lambda env, m=M: ActionTimeExtensionWrapper(env, M=m)]
             elif args.env_type == "maze2D":
                 p = copy.deepcopy(params_maze2D)
                 p["M"] = M
-                p["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/${run_time}_td3-S${{algorithm.seed}}_M={M}"
+                p["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/{run_time}_td3-S${{algorithm.seed}}_M={M}"
                 p["algorithm"]["seed"] = seed
                 p["gym_env"]["env_args"]["maze_map"] = maze_map
                 wrappers = [
@@ -74,14 +78,13 @@ if __name__ == "__main__":
                     ]
                 
             td3 = TD3(OmegaConf.create(p), env_wrappers=wrappers)
-            run_td3(td3, save_checkpoint=args.save_checkpoint,maze_map=maze_map,env_type=args.env_type, plots=args.plots)
+            run_td3(td3, save_checkpoint=args.save_checkpoint, maze_map=maze_map, env_type=args.env_type, plots=args.plots)
             if args.visualize_best:
-                    td3.visualize_best()
+                td3.visualize_best()
 
     else:
         for seed in range(args.seed_start, args.seed_start + args.nb_seeds):
-            
-            for M in range(1, args.M + 1): 
+            for M in range(args.start_M, args.start_M + args.nb_M): 
                 run_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
                 if args.env_type == "maze2D":
@@ -89,8 +92,9 @@ if __name__ == "__main__":
                     current_params["M"] = M
                     current_params["algorithm"]["seed"] = seed
                     current_params["gym_env"]["env_args"]["maze_map"] = maze_map
-                    current_params["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/${run_time}_td3-S${{algorithm.seed}}_M={M}"
-                    
+                    current_params["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/{run_time}_td3-S${{algorithm.seed}}_M={M}"
+                    params_maze2D["gym_env"]["env_args"]["reward_type"] = args.reward_type
+                    params_maze2D["gym_env"]["env_args"]["continuing_task"] = args.continuing_task
                     wrappers = [
                         lambda env, m=M: ActionTimeExtensionWrapper(env, M=m),
                         lambda env: Autoreset(env),  
@@ -100,7 +104,7 @@ if __name__ == "__main__":
                     current_params = copy.deepcopy(params_PointMaze)
                     current_params["M"] = M
                     current_params["algorithm"]["seed"] = seed
-                    current_params["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/${run_time}_td3-S${{algorithm.seed}}_M={M}"
+                    current_params["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/{run_time}_td3-S${{algorithm.seed}}_M={M}"
                     
                     wrappers = [
                         lambda env: FlattenObservation(env),

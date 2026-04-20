@@ -10,7 +10,7 @@ class SimpleMaze2D(gym.Env):
 
     metadata = {"render_modes": ["rgb_array"], "render_fps": 5}
 
-    def __init__(self, maze_map=MAZE_2D, action_scale=0.3, goal_threshold=1.5, render_mode=None):
+    def __init__(self, maze_map=MAZE_2D, action_scale=0.3, goal_threshold=1.5, reward_type="dense", continuing_task=False, render_mode=None):
         #print(f"maze_map rows: {len(maze_map)}, action_scale: {action_scale}, goal_threshold: {goal_threshold}")
         super().__init__()
         self.maze_map = maze_map
@@ -18,7 +18,8 @@ class SimpleMaze2D(gym.Env):
         self.cols = len(maze_map[0])
         self.action_scale = action_scale
         self.goal_threshold = goal_threshold
-        #self.max_steps = max_steps
+        self.reward_type = reward_type # "dense" ou "sparse"
+        self.continuing_task = continuing_task # True ou False
         self.render_mode = render_mode
 
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
@@ -67,12 +68,31 @@ class SimpleMaze2D(gym.Env):
         if not self._is_wall(self.pos[0], new_y):
             self.pos[1] = new_y  # C'est libre, on valide Y
 
-        # Calcul de la distance avec la VRAIE position finale
         dist = np.linalg.norm(self.pos - self.goal_pos)
+        on_goal = dist <= self.goal_threshold
 
-        reward = -dist
-        terminated = False
-        truncated = False  # géré par TimeLimit
+        # reward
+        if self.reward_type == "dense":
+            reward = -dist
+            if on_goal:
+                reward += 100.0 
+                
+        elif self.reward_type == "sparse":
+            if on_goal:
+                reward = 100.0
+            else:
+                reward = -1.0 
+        else:
+            raise ValueError(f"Type de récompense inconnu: {self.reward_type}")
+
+        # fin d'episode
+        if on_goal and not self.continuing_task:
+            terminated = True   
+        else:
+            terminated = False
+
+        truncated = False  # géré par TimeLimit 
+        
         return self._get_obs(), reward, terminated, truncated, {}
 
 
