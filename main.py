@@ -93,8 +93,8 @@ if __name__ == "__main__":
                     current_params["algorithm"]["seed"] = seed
                     current_params["gym_env"]["env_args"]["maze_map"] = maze_map
                     current_params["base_dir"] = f"{args.logdir}/${{gym_env.env_name}}/{run_time}_td3-S${{algorithm.seed}}_M={M}"
-                    params_maze2D["gym_env"]["env_args"]["reward_type"] = args.reward_type
-                    params_maze2D["gym_env"]["env_args"]["continuing_task"] = args.continuing_task
+                    current_params["gym_env"]["env_args"]["reward_type"] = args.reward_type
+                    current_params["gym_env"]["env_args"]["continuing_task"] = args.continuing_task
                     wrappers = [
                         lambda env, m=M: ActionTimeExtensionWrapper(env, M=m),
                         lambda env: Autoreset(env),  
